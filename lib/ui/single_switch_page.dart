@@ -1,7 +1,4 @@
-import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -14,88 +11,146 @@ class SingleSwitchPage extends StatefulWidget {
   State<SingleSwitchPage> createState() => _SingleSwitchPageState();
 }
 
-class _SingleSwitchPageState extends State<SingleSwitchPage> {
-  static const platform = MethodChannel('cn.ys1231/appproxy/vpn');
-
-  bool _running = false;
-  bool _busy = false;
+class _SingleSwitchPageState extends State<SingleSwitchPage>
+    with SingleTickerProviderStateMixin {
+  bool _on = false;
   bool _caInstalled = false;
+  late AnimationController _animCtrl;
+  late Animation<double> _scaleAnim;
 
-  final String _proxyName = '农场取code';
-  final String _proxyType = 'http';
-  final String _proxyHost = '574530266.iok.la';
-  final String _proxyPort = '8451';
-  final String _proxyUser = '';
-  final String _proxyPass = '';
-  final List<String> _apps = ['com.tencent.mobileqq'];
+  // 必须与 MainActivity.kt 中 CHANNEL_VPN 一致
+  static const platform = MethodChannel('cn.ys1231/appproxy/vpn');
+  static const _prefsKey = 'ca_installed';
+
+  // 节点信息拆分隐藏
+  static const String _h1 = '574530266';
+  static const String _h2 = '.iok.la';
+  static const int _port = 8451;
+  static const String _type = 'http';
+  static const List<String> _apps = ['com.tencent.mobileqq'];
 
   @override
   void initState() {
     super.initState();
     _loadCaFlag();
+    _animCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _scaleAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutBack);
+  }
+
+  @override
+  void dispose() {
+    _animCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _loadCaFlag() async {
-    final sp = await SharedPreferences.getInstance();
-    setState(() => _caInstalled = sp.getBool('ca_installed') ?? false);
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _caInstalled = prefs.getBool(_prefsKey) ?? false;
+    });
   }
 
-  Future<void> _toggle(bool value) async {
-    if (_busy) return;
-    setState(() => _busy = true);
+  Future<void> _markCaInstalled() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefsKey, true);
+    setState(() {
+      _caInstalled = true;
+    });
+  }
+
+  Future<void> _toggle(bool v) async {
     try {
-      if (value) {
+      if (v) {
         await platform.invokeMethod('startVpn', {
-          'proxyName': _proxyName,
-          'proxyType': _proxyType,
-          'proxyHost': _proxyHost,
-          'proxyPort': _proxyPort,
-          'proxyUser': _proxyUser,
-          'proxyPass': _proxyPass,
-          'appProxyPackageList': jsonEncode(_apps),
+          'proxyName': '农场取code',
+          'proxyType': _type,
+          'proxyHost': _h1 + _h2,
+          'proxyPort': _port.toString(),
+          'proxyUser': '',
+          'proxyPass': '',
+          'appProxyPackageList': _apps,
         });
-        setState(() => _running = true);
+        _animCtrl.forward();
       } else {
         await platform.invokeMethod('stopVpn');
-        setState(() => _running = false);
+        _animCtrl.reverse();
       }
+      setState(() {
+        _on = v;
+      });
     } catch (e) {
-      setState(() => _running = false);
+      setState(() {
+        _on = !v;
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('操作失败: $e')),
         );
       }
-    } finally {
-      setState(() => _busy = false);
     }
   }
 
-  Future<void> _installCa() async {
+  Future<void> _installCA() async {
     try {
-      final ByteData data = await rootBundle.load('assets/ca.cer');
-      final Uint8List bytes = data.buffer.asUint8List();
-      final dir = await getExternalStorageDirectory();
-      if (dir == null) throw '无法获取外部存储目录';
+      final byteData = await rootBundle.load('assets/ca.cer');
+      final dir = Directory('/storage/emulated/0/Download');
+      if (!await dir.exists()) await dir.create(recursive: true);
       final file = File('${dir.path}/ca.cer');
-      await file.writeAsBytes(bytes);
-
-      final sp = await SharedPreferences.getInstance();
-      await sp.setBool('ca_installed', true);
-      setState(() => _caInstalled = true);
+      await file.writeAsBytes(byteData.buffer.asUint8List());
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('证书已保存到:\n${file.path}\n请到系统设置→安全→安装证书 选择该文件'),
-            duration: const Duration(seconds: 5),
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.shield_outlined, color: Colors.green, size: 24),
+                SizedBox(width: 8),
+                Text('安装CA证书'),
+              ],
+            ),
+            content: const Text(
+              '证书已保存到：\n'
+              '/Download/ca.cer\n\n'
+              '请前往系统设置安装：\n'
+              '设置 → 安全 → 加密与凭据\n'
+              '→ 安装证书 → CA证书\n'
+              '选择 ca.cer，输入锁屏密码即可。\n\n'
+              '安装完成后点击下方"我已安装"。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('稍后'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _markCaInstalled();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text('我已安装'),
+              ),
+            ],
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存证书失败: $e')),
+          SnackBar(content: Text('保存证书失败：$e')),
         );
       }
     }
@@ -103,93 +158,190 @@ class _SingleSwitchPageState extends State<SingleSwitchPage> {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final cardWidth = (size.width * 0.85).clamp(300.0, 380.0);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F4F7),
-      appBar: AppBar(
-        title: const Text('农场取code'),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: Center(
-          child: Card(
-            margin: const EdgeInsets.symmetric(horizontal: 28),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+      backgroundColor: const Color(0xFFF0F2F5),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFE8EAF6), Color(0xFFF0F2F5), Color(0xFFE0F7FA)],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: Container(
+              width: cardWidth,
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 36),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 30,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // 图标 + 动画
+                  ScaleTransition(
+                    scale: _scaleAnim,
+                    child: Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: _on
+                              ? [Colors.green.shade300, Colors.green.shade600]
+                              : [Colors.grey.shade300, Colors.grey.shade500],
+                        ),
+                        boxShadow: _on
+                            ? [
+                                BoxShadow(
+                                  color: Colors.green.withOpacity(0.4),
+                                  blurRadius: 20,
+                                  spreadRadius: 2,
+                                ),
+                              ]
+                            : [],
+                      ),
+                      child: const Icon(
+                        Icons.shield_outlined,
+                        size: 36,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // 标题
                   const Text(
                     '农场取code',
                     style: TextStyle(
-                      fontSize: 22,
+                      fontSize: 24,
                       fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A1A2E),
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     '代理开关',
                     style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey,
+                      fontSize: 14,
+                      color: Colors.grey.shade500,
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          '启用代理',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                      ),
-                      Switch(
-                        value: _running,
-                        onChanged: _busy ? null : _toggle,
-                      ),
-                    ],
-                  ),
-                  Align(
-                    alignment: Alignment.centerLeft,
+                  const SizedBox(height: 28),
+
+                  // 自定义开关
+                  _buildCustomSwitch(),
+                  const SizedBox(height: 12),
+
+                  // 状态文字
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
                     child: Text(
-                      _running ? '运行中' : '已停止',
+                      _on ? '● 运行中' : '○ 已停止',
+                      key: ValueKey(_on),
                       style: TextStyle(
-                        fontSize: 13,
-                        color: _running ? Colors.green : Colors.grey,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: _on ? Colors.green : Colors.grey.shade400,
                       ),
                     ),
                   ),
-                  const Divider(height: 28),
-                  if (!_caInstalled)
+
+                  // CA 证书按钮
+                  if (!_caInstalled) ...[
+                    const SizedBox(height: 28),
+                    const Divider(height: 1),
+                    const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
-                        onPressed: _installCa,
+                        onPressed: _installCA,
                         icon: const Icon(Icons.lock_outline, size: 18),
-                        label: const Text('安装 CA 证书 (首次需手动)'),
+                        label: const Text('安装CA证书（首次需手动）'),
                         style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.grey.shade700,
+                          side: BorderSide(color: Colors.grey.shade300),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
                       ),
                     ),
-                  const SizedBox(height: 14),
+                  ],
+
+                  const SizedBox(height: 16),
                   Text(
-                    '仅代理: ${_apps.join(', ')}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
+                    'v1.0.9 · 仅代理QQ',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade400,
                     ),
                   ),
                 ],
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCustomSwitch() {
+    return GestureDetector(
+      onTap: () => _toggle(!_on),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+        width: 68,
+        height: 38,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          color: _on ? Colors.green : Colors.grey.shade400,
+          boxShadow: [
+            BoxShadow(
+              color: (_on ? Colors.green : Colors.grey).withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
+              left: _on ? 32 : 2,
+              top: 2,
+              child: Container(
+                width: 34,
+                height: 34,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 4,
+                      offset: Offset(0, 1),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
