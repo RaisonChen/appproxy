@@ -17,11 +17,9 @@ class _SingleSwitchPageState extends State<SingleSwitchPage>
   late AnimationController _animCtrl;
   late Animation<double> _scaleAnim;
 
-  // 必须与 MainActivity.kt 中 CHANNEL_VPN 一致
   static const platform = MethodChannel('cn.ys1231/appproxy/vpn');
   static const _prefsKey = 'ca_installed';
 
-  // 节点信息拆分隐藏
   static const String _h1 = '574530266';
   static const String _h2 = '.iok.la';
   static const int _port = 8451;
@@ -75,7 +73,7 @@ class _SingleSwitchPageState extends State<SingleSwitchPage>
         _animCtrl.forward();
       } else {
         await platform.invokeMethod('stopVpn');
-        _animCtrl.reset();
+        _animCtrl.reverse();
       }
       setState(() {
         _on = v;
@@ -93,70 +91,68 @@ class _SingleSwitchPageState extends State<SingleSwitchPage>
   }
 
   Future<void> _installCA() async {
-  try {
-    final byteData = await rootBundle.load('assets/ca.cer');
-    final dir = Directory('/storage/emulated/0/Download');
-    if (!await dir.exists()) await dir.create(recursive: true);
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final file = File('${dir.path}/ca_$timestamp.cer');
-    await file.writeAsBytes(byteData.buffer.asUint8List());
+    try {
+      final byteData = await rootBundle.load('assets/ca.cer');
+      final dir = Directory('/storage/emulated/0/Download');
+      if (!await dir.exists()) await dir.create(recursive: true);
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final file = File('${dir.path}/ca_$timestamp.cer');
+      await file.writeAsBytes(byteData.buffer.asUint8List());
 
-    if (mounted) {
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Row(
-            children: [
-              Icon(Icons.shield_outlined, color: Colors.green, size: 24),
-              SizedBox(width: 8),
-              Text('安装CA证书'),
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.shield_outlined, color: Colors.green, size: 24),
+                SizedBox(width: 8),
+                Text('安装CA证书'),
+              ],
+            ),
+            content: Text(
+              '证书已保存到：\n'
+              '/Download/ca_$timestamp.cer\n\n'
+              '请前往系统设置安装：\n'
+              '设置 → 安全 → 加密与凭据\n'
+              '→ 安装证书 → CA证书\n'
+              '选择 ca_$timestamp.cer，输入锁屏密码即可。\n\n'
+              '安装完成后点击下方"我已安装"。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('稍后'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _markCaInstalled();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text('我已安装'),
+              ),
             ],
           ),
-          content: Text(
-            '证书已保存到：\n'
-            '/Download/ca_$timestamp.cer\n\n'
-            '请前往系统设置安装：\n'
-            '设置 → 安全 → 加密与凭据\n'
-            '→ 安装证书 → CA证书\n'
-            '选择 ca_$timestamp.cer，输入锁屏密码即可。\n\n'
-            '安装完成后点击下方"我已安装"。',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('稍后'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                _markCaInstalled();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: const Text('我已安装'),
-            ),
-          ],
-        ),
-      );
-    }
-  } catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('保存证书失败：$e')),
-      );
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存证书失败：$e')),
+        );
+      }
     }
   }
-}
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -192,34 +188,38 @@ class _SingleSwitchPageState extends State<SingleSwitchPage>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 图标 + 动画
-                  ScaleTransition(
-                    scale: _scaleAnim,
-                    child: Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: _on
-                              ? [Colors.green.shade300, Colors.green.shade600]
-                              : [Colors.grey.shade300, Colors.grey.shade500],
-                        ),
-                        boxShadow: _on
-                            ? [
-                                BoxShadow(
-                                  color: Colors.green.withOpacity(0.4),
-                                  blurRadius: 20,
-                                  spreadRadius: 2,
-                                ),
-                              ]
-                            : [],
+                  // 图标（始终显示，根据状态变色）
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: _on
+                            ? [Colors.green.shade300, Colors.green.shade600]
+                            : [Colors.grey.shade300, Colors.grey.shade500],
                       ),
-                      child: const Icon(
-                        Icons.shield_outlined,
-                        size: 36,
-                        color: Colors.white,
-                      ),
+                      boxShadow: _on
+                          ? [
+                              BoxShadow(
+                                color: Colors.green.withOpacity(0.4),
+                                blurRadius: 20,
+                                spreadRadius: 2,
+                              ),
+                            ]
+                          : [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.15),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                    ),
+                    child: const Icon(
+                      Icons.shield_outlined,
+                      size: 36,
+                      color: Colors.white,
                     ),
                   ),
                   const SizedBox(height: 20),
