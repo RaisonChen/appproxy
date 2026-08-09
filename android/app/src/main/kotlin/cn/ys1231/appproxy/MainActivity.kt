@@ -230,17 +230,17 @@ class MainActivity : FlutterActivity() {
         }
 
 
-        // 遍历所有 app 通知刷新
-        Thread {
-            Log.d(TAG, "configureFlutterEngine: start get app list info")
-            utils!!.initAppList()
-            runOnUiThread {
-                Log.d(TAG, "configureFlutterEngine: call onRefresh")
-                FLUTTER_CHANNEL!!.invokeMethod("onRefresh", null)
-                Log.d(TAG, "configureFlutterEngine: end get app list info")
-            }
-        }.start()
-    }
+                // 遍历所有 app 通知刷新（已注释，避免启动时触发读取应用列表权限弹窗）
+        // Thread {
+        //     Log.d(TAG, "configureFlutterEngine: start get app list info")
+        //     utils!!.initAppList()
+        //     runOnUiThread {
+        //         Log.d(TAG, "configureFlutterEngine: call onRefresh")
+        //         FLUTTER_CHANNEL!!.invokeMethod("onRefresh", null)
+        //         Log.d(TAG, "configureFlutterEngine: end get app list info")
+        //     }
+        // }.start()
+
 
     private val VPN_REQUEST_CODE = 100
     private val REQUEST_NOTIFICATION_PERMISSION = 1231
