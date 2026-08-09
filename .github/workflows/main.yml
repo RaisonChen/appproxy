@@ -6,22 +6,34 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 35
+
     steps:
-      - uses: actions/checkout@v4
-      
-      - uses: subosito/flutter-action@v2
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Flutter stable
+        uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-      
-      - name: Install dependencies
+
+      - name: Flutter pub get
         run: flutter pub get
-      
-      - name: Build APK
+
+      - name: Build release APK
         run: flutter build apk --release
-      
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: app-release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: single-switch-apk
+          path: build/app/outputs/flutter-apk/*.apk
