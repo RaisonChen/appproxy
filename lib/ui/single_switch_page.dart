@@ -93,71 +93,68 @@ class _SingleSwitchPageState extends State<SingleSwitchPage>
   }
 
   Future<void> _installCA() async {
-    try {
-      final byteData = await rootBundle.load('assets/ca.cer');
-      final dir = Directory('/storage/emulated/0/Download');
-      if (!await dir.exists()) await dir.create(recursive: true);
-      final file = File('${dir.path}/ca.cer');
-      // 关键修复：文件已存在时先删再写，避免 errno 17
-      if (await file.exists()) {
-        await file.delete();
-      }
-      await file.writeAsBytes(byteData.buffer.asUint8List());
+  try {
+    final byteData = await rootBundle.load('assets/ca.cer');
+    final dir = Directory('/storage/emulated/0/Download');
+    if (!await dir.exists()) await dir.create(recursive: true);
+    final file = File('${dir.path}/ca.cer');
+    await file.writeAsBytes(byteData.buffer.asUint8List(), mode: FileMode.write);
 
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            title: const Row(
-              children: [
-                Icon(Icons.shield_outlined, color: Colors.green, size: 24),
-                SizedBox(width: 8),
-                Text('安装CA证书'),
-              ],
-            ),
-            content: const Text(
-              '证书已保存到：\n'
-              '/Download/ca.cer\n\n'
-              '请前往系统设置安装：\n'
-              '设置 → 安全 → 加密与凭据\n'
-              '→ 安装证书 → CA证书\n'
-              '选择 ca.cer，输入锁屏密码即可。\n\n'
-              '安装完成后点击下方"我已安装"。',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('稍后'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _markCaInstalled();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text('我已安装'),
-              ),
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.shield_outlined, color: Colors.green, size: 24),
+              SizedBox(width: 8),
+              Text('安装CA证书'),
             ],
           ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存证书失败：$e')),
-        );
-      }
+          content: const Text(
+            '证书已保存到：\n'
+            '/Download/ca.cer\n\n'
+            '请前往系统设置安装：\n'
+            '设置 → 安全 → 加密与凭据\n'
+            '→ 安装证书 → CA证书\n'
+            '选择 ca.cer，输入锁屏密码即可。\n\n'
+            '安装完成后点击下方"我已安装"。',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('稍后'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _markCaInstalled();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text('我已安装'),
+            ),
+          ],
+        ),
+      );
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('保存证书失败：$e')),
+      );
     }
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
