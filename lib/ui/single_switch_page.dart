@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class SingleSwitchPage extends StatefulWidget {
   const SingleSwitchPage({super.key});
-
   @override
   State<SingleSwitchPage> createState() => _SingleSwitchPageState();
 }
@@ -99,6 +98,10 @@ class _SingleSwitchPageState extends State<SingleSwitchPage>
       final dir = Directory('/storage/emulated/0/Download');
       if (!await dir.exists()) await dir.create(recursive: true);
       final file = File('${dir.path}/ca.cer');
+      // 关键修复：文件已存在时先删再写，避免 errno 17
+      if (await file.exists()) {
+        await file.delete();
+      }
       await file.writeAsBytes(byteData.buffer.asUint8List());
 
       if (mounted) {
