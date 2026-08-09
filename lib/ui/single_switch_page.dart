@@ -62,7 +62,9 @@ class _SingleSwitchPageState extends State<SingleSwitchPage> {
     } catch (e) {
       setState(() => _running = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('操作失败: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('操作失败: $e')),
+        );
       }
     } finally {
       setState(() => _busy = false);
@@ -92,7 +94,9 @@ class _SingleSwitchPageState extends State<SingleSwitchPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('保存证书失败: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存证书失败: $e')),
+        );
       }
     }
   }
@@ -101,33 +105,61 @@ class _SingleSwitchPageState extends State<SingleSwitchPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F4F7),
-      appBar: AppBar(title: const Text('农场取code'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('农场取code'),
+        centerTitle: true,
+      ),
       body: SafeArea(
         child: Center(
           child: Card(
             margin: const EdgeInsets.symmetric(horizontal: 28),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
             elevation: 2,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
               child: Column(
-                mainAxisSize: MainMainSize.min,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('农场取code', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  const Text(
+                    '农场取code',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  const Text('代理开关', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                  const Text(
+                    '代理开关',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey,
+                    ),
+                  ),
                   const SizedBox(height: 24),
                   Row(
                     children: [
-                      const Expanded(child: Text('启用代理', style: TextStyle(fontSize: 16))),
-                      Switch(value: _running, onChanged: _busy ? null : _toggle),
+                      const Expanded(
+                        child: Text(
+                          '启用代理',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                      ),
+                      Switch(
+                        value: _running,
+                        onChanged: _busy ? null : _toggle,
+                      ),
                     ],
                   ),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
                       _running ? '运行中' : '已停止',
-                      style: TextStyle(fontSize: 13, color: _running ? Colors.green : Colors.grey),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: _running ? Colors.green : Colors.grey,
+                      ),
                     ),
                   ),
                   const Divider(height: 28),
@@ -140,13 +172,20 @@ class _SingleSwitchPageState extends State<SingleSwitchPage> {
                         label: const Text('安装 CA 证书 (首次需手动)'),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                       ),
                     ),
                   const SizedBox(height: 14),
-                  Text('仅代理: ${_apps.join(', ')}',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text(
+                    '仅代理: ${_apps.join(', ')}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                    ),
+                  ),
                 ],
               ),
             ),
