@@ -54,6 +54,7 @@ dependencies:
   intl_utils: ^2.8.13
 
 dev_dependencies:
+  intl_utils: ^2.8.0
   flutter_test:
     sdk: flutter
 
