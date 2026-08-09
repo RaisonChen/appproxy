@@ -1,143 +1,195 @@
-import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 
-/// 单开关页面：开/关代理，配置写死为 574530266.iok.la:8451 http
-/// 仅代理 QQ (com.tencent.mobileqq)
-/// 效果与原版一致，但只用一个开关控制
 class SingleSwitchPage extends StatefulWidget {
-  const SingleSwitchPage({Key? key}) : super(key: key);
+  const SingleSwitchPage({super.key});
 
   @override
   State<SingleSwitchPage> createState() => _SingleSwitchPageState();
 }
 
-class _SingleSwitchPageState extends State<SingleSwitchPage>
-    with SingleTickerProviderStateMixin {
-  bool _isOn = false;
-  bool _caInstalled = false;
-  late AnimationController _animCtrl;
-  late Animation<double> _scaleAnim;
-
+class _SingleSwitchPageState extends State<SingleSwitchPage> {
   static const platform = MethodChannel('cn.ys1231/appproxy/vpn');
-  static const _prefsKey = 'ca_installed';
 
-  // 写死的代理配置 —— 与原版字段完全一致
-  static const String _proxyName = '农场取码';
-  static const String _proxyType = 'http';
-  static const String _proxyHost = '574530266.iok.la';
-  static const int _proxyPort = 8451;
-  static const List<String> _apps = ['com.tencent.mobileqq'];
+  bool _running = false;
+  bool _busy = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _animCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-    _scaleAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut);
-    _loadPrefs();
-    // 监听 native 端通知停止
-    platform.setMethodCallHandler((call) async {
-      if (call.method == 'stopVpn') {
-        _setOff();
-      }
-      return null;
-    });
-  }
+  // 代理参数（写死，与原版一致）
+  final String _proxyName = '农场取code';
+  final String _proxyType = 'http';
+  final String _proxyHost = '574530266.iok.la';
+  final String _proxyPort = '8451';
+  final String _proxyUser = '';
+  final String _proxyPass = '';
+  final List<String> _apps = ['com.tencent.mobileqq'];
 
-  Future<void> _loadPrefs() async {
-    // 简单用 channel 调原版 Utils 存过的偏好（如不存在就忽略）
+  Future<void> _toggle(bool value) async {
+    if (_busy) return;
+    setState(() => _busy = true);
     try {
-      final sp = await MethodChannel('cn.ys1231/appproxy')
-          .invokeMethod('getPrefsBool', {'key': _prefsKey});
-      if (sp is bool && sp) {
-        setState(() => _caInstalled = true);
-      }
-    } catch (_) {}
-  }
-
-  void _setOff() {
-    if (!mounted) return;
-    setState(() => _isOn = false);
-    _animCtrl.reverse();
-  }
-
-  Future<void> _toggle(bool v) async {
-    if (v) {
-      try {
+      if (value) {
         await platform.invokeMethod('startVpn', {
           'proxyName': _proxyName,
           'proxyType': _proxyType,
           'proxyHost': _proxyHost,
-          'proxyPort': _proxyPort.toString(),
-          'proxyUser': '',
-          'proxyPass': '',
+          'proxyPort': _proxyPort,
+          'proxyUser': _proxyUser,
+          'proxyPass': _proxyPass,
           'appProxyPackageList': jsonEncode(_apps),
         });
-        setState(() => _isOn = true);
-        _animCtrl.forward();
-      } catch (e) {
-        _setOff();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('启动失败: $e')),
-          );
-        }
-      }
-    } else {
-      try {
+        setState(() => _running = true);
+      } else {
         await platform.invokeMethod('stopVpn');
-      } catch (_) {}
-      _setOff();
+        setState(() => _running = false);
+      }
+    } catch (e) {
+      setState(() => _running = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('操作失败: $e')),
+        );
+      }
+    } finally {
+      setState(() => _busy = false);
     }
   }
 
-  @override
-  void dispose() {
-    _animCtrl.dispose();
-    super.dispose();
+  Future<void> _installCa() async {
+    try {
+      // 优先尝试 ca.cer，失败后尝试 ca.crt
+      ByteData bytes;
+      try {
+        bytes = await rootBundle.load('assets/ca.cer');
+      } catch (_) {
+        bytes = await rootBundle.load('assets/ca.crt');
+      }
+
+      final dir = await getExternalStorageDirectory();
+      if (dir == null) throw '无法获取外部存储目录';
+
+      final file = File('${dir.path}/ca.cer');
+      await file.writeAsBytes(bytes.buffer.asUint8List());
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('证书已保存到:\n${file.path}\n请到系统设置手动安装'),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存证书失败: $e')),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('农场取码代理')),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ScaleTransition(
-              scale: _scaleAnim,
-              child: Switch(
-                value: _isOn,
-                onChanged: _toggle,
-                activeColor: Colors.green,
+      backgroundColor: const Color(0xFFF2F4F7),
+      appBar: AppBar(
+        title: const Text('农场取code'),
+        centerTitle: true,
+      ),
+      body: SafeArea(
+        child: Center(
+          child: Card(
+            margin: const EdgeInsets.symmetric(horizontal: 28),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 标题
+                  const Text(
+                    '农场取code',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '代理开关',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // 开关行
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          '启用代理',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                      ),
+                      Switch(
+                        value: _running,
+                        onChanged: _busy ? null : _toggle,
+                      ),
+                    ],
+                  ),
+
+                  // 状态文字
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _running ? '运行中' : '已停止',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: _running ? Colors.green : Colors.grey,
+                      ),
+                    ),
+                  ),
+
+                  const Divider(height: 28),
+
+                  // 安装 CA 证书按钮
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _installCa,
+                      icon: const Icon(Icons.lock_outline, size: 18),
+                      label: const Text('安装 CA 证书 (首次需手动)'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // 底部小字
+                  Text(
+                    '仅代理: ${_apps.join(', ')}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              _isOn ? '代理已开启' : '代理已关闭',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '$_proxyType://$_proxyHost:$_proxyPort',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              '仅代理: com.tencent.mobileqq',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            if (_caInstalled)
-              const Padding(
-                padding: EdgeInsets.only(top: 12),
-                child: Chip(label: Text('CA 已安装')),
-              ),
-          ],
+          ),
         ),
       ),
     );
