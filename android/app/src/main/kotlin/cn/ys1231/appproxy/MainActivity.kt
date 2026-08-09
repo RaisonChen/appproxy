@@ -241,6 +241,8 @@ class MainActivity : FlutterActivity() {
         //     }
         // }.start()
 
+        }
+
 
     private val VPN_REQUEST_CODE = 100
     private val REQUEST_NOTIFICATION_PERMISSION = 1231
