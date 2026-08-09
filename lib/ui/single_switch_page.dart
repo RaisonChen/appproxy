@@ -286,7 +286,7 @@ class _SingleSwitchPageState extends State<SingleSwitchPage>
 
                   const SizedBox(height: 16),
                   Text(
-                    'v1.0.9 · 仅代理QQ',
+                    '仅代理QQ端',
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.grey.shade400,
