@@ -75,7 +75,7 @@ class _SingleSwitchPageState extends State<SingleSwitchPage>
         _animCtrl.forward();
       } else {
         await platform.invokeMethod('stopVpn');
-        _animCtrl.reverse();
+        _animCtrl.reset();
       }
       setState(() {
         _on = v;
