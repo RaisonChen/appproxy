@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,7 +19,6 @@ class _SingleSwitchPageState extends State<SingleSwitchPage> {
   bool _running = false;
   bool _busy = false;
 
-  // 代理参数（写死，与原版一致）
   final String _proxyName = '农场取code';
   final String _proxyType = 'http';
   final String _proxyHost = '574530266.iok.la';
@@ -60,18 +60,30 @@ class _SingleSwitchPageState extends State<SingleSwitchPage> {
 
   Future<void> _installCa() async {
     try {
-      // 优先尝试 ca.cer，失败后尝试 ca.crt
-      ByteData bytes;
+      ByteData data;
       try {
-        bytes = await rootBundle.load('assets/ca.cer');
-      } catch (_) {
+        data = await rootBundle.load('assets/ca.cer');
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('加载证书失败: $e')),
+          );
+        }
+        return;
       }
 
       final dir = await getExternalStorageDirectory();
-      if (dir == null) throw '无法获取外部存储目录';
+      if (dir == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('无法获取外部存储目录')),
+          );
+        }
+        return;
+      }
 
       final file = File('${dir.path}/ca.cer');
-      await file.writeAsBytes(bytes.buffer.asUint8List());
+      await file.writeAsBytes(data.buffer.asUint8List());
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -111,7 +123,6 @@ class _SingleSwitchPageState extends State<SingleSwitchPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 标题
                   const Text(
                     '农场取code',
                     style: TextStyle(
@@ -128,8 +139,6 @@ class _SingleSwitchPageState extends State<SingleSwitchPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
-
-                  // 开关行
                   Row(
                     children: [
                       const Expanded(
@@ -144,8 +153,6 @@ class _SingleSwitchPageState extends State<SingleSwitchPage> {
                       ),
                     ],
                   ),
-
-                  // 状态文字
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -156,10 +163,7 @@ class _SingleSwitchPageState extends State<SingleSwitchPage> {
                       ),
                     ),
                   ),
-
                   const Divider(height: 28),
-
-                  // 安装 CA 证书按钮
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
@@ -174,10 +178,7 @@ class _SingleSwitchPageState extends State<SingleSwitchPage> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 14),
-
-                  // 底部小字
                   Text(
                     '仅代理: ${_apps.join(', ')}',
                     style: const TextStyle(
