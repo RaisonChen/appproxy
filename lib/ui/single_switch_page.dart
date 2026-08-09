@@ -97,8 +97,9 @@ class _SingleSwitchPageState extends State<SingleSwitchPage>
     final byteData = await rootBundle.load('assets/ca.cer');
     final dir = Directory('/storage/emulated/0/Download');
     if (!await dir.exists()) await dir.create(recursive: true);
-    final file = File('${dir.path}/ca.cer');
-    await file.writeAsBytes(byteData.buffer.asUint8List(), mode: FileMode.write);
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final file = File('${dir.path}/ca_$timestamp.cer');
+    await file.writeAsBytes(byteData.buffer.asUint8List());
 
     if (mounted) {
       showDialog(
@@ -114,13 +115,13 @@ class _SingleSwitchPageState extends State<SingleSwitchPage>
               Text('安装CA证书'),
             ],
           ),
-          content: const Text(
+          content: Text(
             '证书已保存到：\n'
-            '/Download/ca.cer\n\n'
+            '/Download/ca_$timestamp.cer\n\n'
             '请前往系统设置安装：\n'
             '设置 → 安全 → 加密与凭据\n'
             '→ 安装证书 → CA证书\n'
-            '选择 ca.cer，输入锁屏密码即可。\n\n'
+            '选择 ca_$timestamp.cer，输入锁屏密码即可。\n\n'
             '安装完成后点击下方"我已安装"。',
           ),
           actions: [
@@ -154,6 +155,7 @@ class _SingleSwitchPageState extends State<SingleSwitchPage>
     }
   }
 }
+
 
 
   @override
