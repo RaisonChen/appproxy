@@ -245,28 +245,30 @@ class MainActivity : FlutterActivity() {
     private val VPN_REQUEST_CODE = 100
     private val REQUEST_NOTIFICATION_PERMISSION = 1231
     private fun checkVpnPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(
-                    this,
-                    POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                ActivityCompat.requestPermissions(
-                    this,
-                    arrayOf(POST_NOTIFICATIONS),
-                    REQUEST_NOTIFICATION_PERMISSION
-                )
-            } else {
-                // 权限已被授予
-                Log.d(TAG, "onCreate: 通知权限已授予!")
-            }
-        }
-        // 准备建立 VPN 连接 检测用户是否同意
-        val intent = VpnService.prepare(context)
-        if (intent != null) {
-            this.startActivityForResult(intent, VPN_REQUEST_CODE)
-        }
+    // 注释掉通知权限检查和跳转，避免每次都跳到系统设置
+    // if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+    //     if (ContextCompat.checkSelfPermission(
+    //             this,
+    //             POST_NOTIFICATIONS
+    //         ) != PackageManager.PERMISSION_GRANTED
+    //     ) {
+    //         ActivityCompat.requestPermissions(
+    //             this,
+    //             arrayOf(POST_NOTIFICATIONS),
+    //             REQUEST_NOTIFICATION_PERMISSION
+    //         )
+    //     } else {
+    //         Log.d(TAG, "onCreate: 通知权限已授予!")
+    //     }
+    // }
+    
+    // 只保留 VPN 授权检测
+    val intent = VpnService.prepare(context)
+    if (intent != null) {
+        this.startActivityForResult(intent, VPN_REQUEST_CODE)
     }
+}
+
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
