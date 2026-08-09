@@ -65,7 +65,6 @@ class _SingleSwitchPageState extends State<SingleSwitchPage> {
       try {
         bytes = await rootBundle.load('assets/ca.cer');
       } catch (_) {
-        bytes = await rootBundle.load('assets/ca.crt');
       }
 
       final dir = await getExternalStorageDirectory();
