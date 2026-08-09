@@ -17,6 +17,8 @@ jobs:
           cache: true
 
       - run: flutter pub get
+      
+      - run: dart run intl_utils:generate
 
       - run: flutter build apk --release
 
